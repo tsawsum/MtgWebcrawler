@@ -22,7 +22,8 @@ def login():
     login_data = {'utf8': '✓', 'authenticity_token': auth_token, 'override_origin': '', 'auth_key': 'tsawsum@icloud.com', 'password': 'Kabukisam2', 'commit': 'Log+In'}
     url = 'https://www.mtggoldfish.com/auth/identity/callback'
     session.post(url, data=login_data)
-
+    
+    # Checks if logged in
     soup = BeautifulSoup(session.get('https://www.mtggoldfish.com').text, features="html.parser")
     login_text = soup.find_all('a', class_='nav-link dropdown-toggle')[-1].string.strip()
     if login_text == 'Login':
