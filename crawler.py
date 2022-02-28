@@ -10,19 +10,23 @@ import shutil  # clearly all of these useless imports indicate an arduous proces
 from lxml import html
 
 
-session = requests.session()
+session = requests.Session()
+completed_sets = []
 
 
 def login():
     response = session.get('https://www.mtggoldfish.com/login')
     page = html.fromstring(response.content)
     # equivalent to making a soup object
-    auth_token = page.xpath('//form[@action="/auth/identity/callback"]/input[@name="authenticity_token"]')[0].attrib['value']
+    try:
+        auth_token = page.xpath('//form[@action="/auth/identity/callback"]/input[@name="authenticity_token"]')[0].attrib['value']
+    except Exception:
+        print("LOGIN POSSIBLE ERROR")
     # equivalent to soup.findall with action callback, and an input authenticity token.
     login_data = {'utf8': '✓', 'authenticity_token': auth_token, 'override_origin': '', 'auth_key': 'tsawsum@icloud.com', 'password': 'Kabukisam2', 'commit': 'Log+In'}
     url = 'https://www.mtggoldfish.com/auth/identity/callback'
     session.post(url, data=login_data)
-    
+
     # Checks if logged in
     soup = BeautifulSoup(session.get('https://www.mtggoldfish.com').text, features="html.parser")
     login_text = soup.find_all('a', class_='nav-link dropdown-toggle')[-1].string.strip()
@@ -32,12 +36,6 @@ def login():
         print('Logged in')
     else:
         print('What the fuck')
-
-
-def test_login_2():
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome / 83.0.4103.116 Safari / 537.36'}
-
-    # https://www.mtggoldfish.com/price-download/paper/Kroxa%252C+Titan+of+Death%2527s+Hunger+%255BTHB%255D
 
 
 # def login():
@@ -73,8 +71,8 @@ def set_spider(folder):
             # print(title)
             # print(href)
             print(set_name)
-            card_finder(href, folder + set_name + "/")
-            break
+            if not set_name in completed_sets:
+                card_finder(href, folder + set_name + "/")
 
 
 def card_finder(set_url, folder):
@@ -87,16 +85,21 @@ def card_finder(set_url, folder):
     count = 0
     for link in soup.find(class_='table-responsive').findAll('a'):
         title = link.string
+
         href = link.get('href')  # separated for no reason at all here
+        split_list = href.split("/")
+        card_name = "/" + split_list[-1]
+
         href = 'https://www.mtggoldfish.com' + href + '#paper'
 
-        count += 1
-        if count % 5 == 0:
-            print(count)
-        card_price_downloader(href, folder)
+        if not os.path.exists(folder + card_name + '.csv'):
+            count += 1
+            if count % 5 == 0:
+                print(count)
+            card_price_downloader(href, folder, card_name)
 
 
-def card_price_downloader(card_url, folder):
+def card_price_downloader(card_url, folder, card_name):
     source_code = session.get(card_url)
     plain_text_code = source_code.text
 
@@ -107,13 +110,14 @@ def card_price_downloader(card_url, folder):
             href = link.get('href')  # separated for no reason at all here
             href = 'https://www.mtggoldfish.com' + href
             # The download button in theory
-            name = ""
-            i = 0
-            while href[i] != '%':
-                i += 1
-            while href[i] != "/":
-                i = i - 1
-                name = href[i] + name
+            # name = ""
+            # i = 0
+            # while href[i] != '%':
+            #     i += 1
+            # while href[i] != "/":
+            #     i = i - 1
+            #     name = href[i] + name
+            # print(name)
 
             if not os.path.exists(folder):
                 os.makedirs(folder)
@@ -121,8 +125,10 @@ def card_price_downloader(card_url, folder):
                 # May not work on mac.
                 # Using requests so as to maintain the same cookies
                 response = session.get(href, allow_redirects=True)
-                with open(folder + name + '.csv', 'wb') as f:
-                    f.write(response.content)  # shutil.copyfileobj(response.content, f)
+                if not os.path.exists(folder + card_name + '.csv'):
+                    print(card_name)
+                    with open(folder + card_name + '.csv', 'wb') as f:
+                        f.write(response.content)  # shutil.copyfileobj(response.content, f)
             except Exception:
                 print("bad link download")
     else:
